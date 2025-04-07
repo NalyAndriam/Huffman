@@ -8,6 +8,7 @@ import java.awt.*;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class HuffmanUI extends JFrame {
@@ -55,8 +56,8 @@ public class HuffmanUI extends JFrame {
         decodeFromDictButton = createButton("Decode from Dictionary", "Decode a binary sequence using current dictionary");
         
         buttonPanel.add(encodeButton);
-        //buttonPanel.add(loadImageButton);
-        //buttonPanel.add(decodeButton);
+        buttonPanel.add(loadImageButton);
+        buttonPanel.add(decodeButton);
         buttonPanel.add(showStatsButton);
         buttonPanel.add(decodeFromDictButton);
         
@@ -108,7 +109,7 @@ public class HuffmanUI extends JFrame {
         
         // Register event handlers
         encodeButton.addActionListener(e -> encodeText());
-        decodeButton.addActionListener(e -> decodeFromImage());
+        decodeButton.addActionListener(e -> openDecodeOptionsPopup());
         loadImageButton.addActionListener(e -> loadImage());
         showStatsButton.addActionListener(e -> showEncodedInfo());
         decodeFromDictButton.addActionListener(e -> openDecodePopup());
@@ -173,21 +174,20 @@ public class HuffmanUI extends JFrame {
         }
     }
 
-    private void decodeFromImage() {
+    private void decodeFromImage(List<int[]> positions) {
         if (imageProcessor.getImage() == null) {
             showError("Please load an image first!");
             return;
         }
         
         try {
-            List<int[]> positions = imageProcessor.generatePositions(200, 15);
             String bits = imageProcessor.extractBits(positions);
             if (!bits.isEmpty()) {
                 String decodedText = huffman.decode(bits);
                 outputTextArea.setText("Extracted bits: " + bits + "\n\nDecoded text: " + decodedText);
                 updateStatus("Message decoded from image successfully!");
             } else {
-                showError("No data found in the image!");
+                showError("No data found in the image or invalid positions!");
             }
         } catch (Exception ex) {
             showError("Decoding error: " + ex.getMessage());
@@ -280,6 +280,137 @@ public class HuffmanUI extends JFrame {
         
         decodeDialog.add(contentPanel);
         decodeDialog.setVisible(true);
+    }
+
+    private void openDecodeOptionsPopup() {
+        if (imageProcessor.getImage() == null) {
+            showError("Please load an image first!");
+            return;
+        }
+
+        JDialog optionsDialog = new JDialog(this, "Decode Options", true);
+        optionsDialog.setSize(500, 300);
+        optionsDialog.setLayout(new BorderLayout(10, 10));
+        optionsDialog.setLocationRelativeTo(this);
+
+        JPanel contentPanel = new JPanel(new BorderLayout(5, 5));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        JLabel instructionLabel = new JLabel("Choose how to specify pixel positions:");
+        instructionLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        
+        JPanel optionsPanel = new JPanel(new GridLayout(2, 1, 5, 5));
+        JButton generateButton = new JButton("Generate Positions (Auto)");
+        JButton manualButton = new JButton("Enter Positions Manually");
+        
+        generateButton.addActionListener(e -> {
+            List<int[]> positions = imageProcessor.generatePositions(200, 15);
+            decodeFromImage(positions);
+            optionsDialog.dispose();
+        });
+        
+        manualButton.addActionListener(e -> {
+            optionsDialog.dispose();
+            openManualPositionsPopup();
+        });
+        
+        optionsPanel.add(generateButton);
+        optionsPanel.add(manualButton);
+        
+        contentPanel.add(instructionLabel, BorderLayout.NORTH);
+        contentPanel.add(optionsPanel, BorderLayout.CENTER);
+        
+        JButton cancelButton = new JButton("Cancel");
+        cancelButton.addActionListener(e -> optionsDialog.dispose());
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.add(cancelButton);
+        
+        contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        optionsDialog.add(contentPanel);
+        optionsDialog.setVisible(true);
+    }
+
+    private void openManualPositionsPopup() {
+        JDialog manualDialog = new JDialog(this, "Enter Pixel Positions", true);
+        manualDialog.setSize(500, 400);
+        manualDialog.setLayout(new BorderLayout(10, 10));
+        manualDialog.setLocationRelativeTo(this);
+
+        JPanel contentPanel = new JPanel(new BorderLayout(5, 5));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        JLabel instructionLabel = new JLabel("Enter positions (format: x,y per line):");
+        instructionLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        JLabel exampleLabel = new JLabel("Example:\n0,0\n15,0\n0,15");
+        exampleLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        
+        JTextArea positionsArea = new JTextArea();
+        positionsArea.setLineWrap(true);
+        positionsArea.setWrapStyleWord(true);
+        positionsArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton cancelButton = new JButton("Cancel");
+        JButton confirmButton = new JButton("Decode");
+        
+        cancelButton.addActionListener(e -> manualDialog.dispose());
+        
+        confirmButton.addActionListener(e -> {
+            String positionsText = positionsArea.getText().trim();
+            if (positionsText.isEmpty()) {
+                JOptionPane.showMessageDialog(manualDialog, "Please enter at least one position!", 
+                    "Input Required", JOptionPane.WARNING_MESSAGE);
+            } else {
+                try {
+                    List<int[]> positions = parsePositions(positionsText);
+                    decodeFromImage(positions);
+                    manualDialog.dispose();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(manualDialog, "Invalid format: " + ex.getMessage(),
+                        "Format Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+        
+        buttonPanel.add(cancelButton);
+        buttonPanel.add(confirmButton);
+        
+        contentPanel.add(instructionLabel, BorderLayout.NORTH);
+        contentPanel.add(new JScrollPane(positionsArea), BorderLayout.CENTER);
+        contentPanel.add(exampleLabel, BorderLayout.WEST);
+        contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        manualDialog.add(contentPanel);
+        manualDialog.setVisible(true);
+    }
+
+    private List<int[]> parsePositions(String positionsText) throws Exception {
+        List<int[]> positions = new ArrayList<>();
+        String[] lines = positionsText.split("\n");
+        
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+            
+            String[] parts = line.split(",");
+            if (parts.length != 2) {
+                throw new Exception("Each line must contain exactly two numbers separated by a comma (x,y)");
+            }
+            
+            try {
+                int x = Integer.parseInt(parts[0].trim());
+                int y = Integer.parseInt(parts[1].trim());
+                positions.add(new int[]{x, y});
+            } catch (NumberFormatException e) {
+                throw new Exception("Invalid number format in line: " + line);
+            }
+        }
+        
+        if (positions.isEmpty()) {
+            throw new Exception("No valid positions provided");
+        }
+        return positions;
     }
     
     private void showError(String message) {
