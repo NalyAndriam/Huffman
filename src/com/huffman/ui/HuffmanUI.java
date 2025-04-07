@@ -5,164 +5,289 @@ import com.huffman.core.ImageProcessor;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
-import java.io.*;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.*;
 import java.util.List;
 
 public class HuffmanUI extends JFrame {
     private JTextArea inputTextArea, outputTextArea;
-    private JButton encodeButton, decodeButton, loadImageButton, showEncodedInfoButton, decodeFromDictButton;
-    private JLabel imageLabel;
+    private JButton encodeButton, decodeButton, loadImageButton, showStatsButton, decodeFromDictButton;
+    private JLabel imageLabel, statusLabel;
+    private JPanel imagePanel;
     private HuffmanCoding huffman = new HuffmanCoding();
     private ImageProcessor imageProcessor = new ImageProcessor();
 
     public HuffmanUI() {
-        setTitle("Huffman Coding & Steganography");
-        setSize(800, 600);
+        setTitle("Huffman Coding & Steganography Tool");
+        setSize(900, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLayout(new BorderLayout());
-
-        // Panel principal
-        JPanel mainPanel = new JPanel(new GridLayout(2, 1));
+        setLayout(new BorderLayout(10, 10));
         
-        // Panel supérieur (entrée et boutons)
-        JPanel topPanel = new JPanel(new BorderLayout());
-        inputTextArea = new JTextArea(10, 30);
-        topPanel.add(new JLabel("Texte d'entrée:"), BorderLayout.NORTH);
-        topPanel.add(new JScrollPane(inputTextArea), BorderLayout.CENTER);
-
-        JPanel buttonPanel = new JPanel();
-        encodeButton = new JButton("Encoder");
-        decodeButton = new JButton("Décoder depuis l'image");
-        loadImageButton = new JButton("Charger une image");
-        showEncodedInfoButton = new JButton("Infos encodées");
-        decodeFromDictButton = new JButton("Décoder depuis dictionnaire");
+        // Main split pane
+        JSplitPane mainSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+        mainSplitPane.setResizeWeight(0.5);
+        mainSplitPane.setDividerLocation(300);
+        
+        // Top panel (input and encoding options)
+        JPanel topPanel = new JPanel(new BorderLayout(5, 5));
+        topPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10));
+        
+        // Input text area with title panel
+        JPanel inputPanel = new JPanel(new BorderLayout());
+        JLabel inputLabel = new JLabel("Input Text:");
+        inputLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        inputTextArea = new JTextArea();
+        inputTextArea.setLineWrap(true);
+        inputTextArea.setWrapStyleWord(true);
+        inputTextArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        
+        inputPanel.add(inputLabel, BorderLayout.NORTH);
+        inputPanel.add(new JScrollPane(inputTextArea), BorderLayout.CENTER);
+        
+        // Button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        
+        encodeButton = createButton("Encode", "Encode the input text using Huffman coding");
+        decodeButton = createButton("Decode from Image", "Extract hidden message from image");
+        loadImageButton = createButton("Load Image", "Load an image for steganography");
+        showStatsButton = createButton("Compression Stats", "Show encoding statistics");
+        decodeFromDictButton = createButton("Decode from Dictionary", "Decode a binary sequence using current dictionary");
         
         buttonPanel.add(encodeButton);
-        //buttonPanel.add(decodeButton);
         //buttonPanel.add(loadImageButton);
-        buttonPanel.add(showEncodedInfoButton);
+        //buttonPanel.add(decodeButton);
+        buttonPanel.add(showStatsButton);
         buttonPanel.add(decodeFromDictButton);
         
+        // Status bar
+        statusLabel = new JLabel("Ready");
+        statusLabel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY),
+            BorderFactory.createEmptyBorder(5, 10, 5, 10)));
+        
+        topPanel.add(inputPanel, BorderLayout.CENTER);
         topPanel.add(buttonPanel, BorderLayout.SOUTH);
         
-        // Panel inférieur (résultat et image)
-        JPanel bottomPanel = new JPanel(new BorderLayout());
-        bottomPanel.add(new JLabel("Résultat:"), BorderLayout.NORTH);
-        outputTextArea = new JTextArea(10, 30);
+        // Bottom panel (output and image)
+        JPanel bottomPanel = new JPanel(new BorderLayout(5, 5));
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 10, 10));
+        
+        // Output text area
+        JPanel outputPanel = new JPanel(new BorderLayout());
+        JLabel outputLabel = new JLabel("Results:");
+        outputLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        outputTextArea = new JTextArea();
         outputTextArea.setEditable(false);
-        bottomPanel.add(new JScrollPane(outputTextArea), BorderLayout.CENTER);
-
-        imageLabel = new JLabel();
-        bottomPanel.add(imageLabel, BorderLayout.SOUTH);
-
-        mainPanel.add(topPanel);
-        mainPanel.add(bottomPanel);
-
-        add(mainPanel);
-
-        // Gestion des événements
+        outputTextArea.setLineWrap(true);
+        outputTextArea.setWrapStyleWord(true);
+        outputTextArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        
+        outputPanel.add(outputLabel, BorderLayout.NORTH);
+        outputPanel.add(new JScrollPane(outputTextArea), BorderLayout.CENTER);
+        
+        // Image panel
+        imagePanel = new JPanel(new BorderLayout());
+        imagePanel.setBorder(BorderFactory.createTitledBorder("Image Preview"));
+        imageLabel = new JLabel("No image loaded", SwingConstants.CENTER);
+        imageLabel.setPreferredSize(new Dimension(300, 200));
+        imagePanel.add(imageLabel, BorderLayout.CENTER);
+        
+        // Add image and output to a split pane
+        JSplitPane outputSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, outputPanel, imagePanel);
+        outputSplitPane.setResizeWeight(0.7);
+        bottomPanel.add(outputSplitPane, BorderLayout.CENTER);
+        
+        // Add components to main split pane
+        mainSplitPane.setTopComponent(topPanel);
+        mainSplitPane.setBottomComponent(bottomPanel);
+        
+        // Add to frame
+        add(mainSplitPane, BorderLayout.CENTER);
+        add(statusLabel, BorderLayout.SOUTH);
+        
+        // Register event handlers
         encodeButton.addActionListener(e -> encodeText());
         decodeButton.addActionListener(e -> decodeFromImage());
         loadImageButton.addActionListener(e -> loadImage());
-        showEncodedInfoButton.addActionListener(e -> showEncodedInfo());
+        showStatsButton.addActionListener(e -> showEncodedInfo());
         decodeFromDictButton.addActionListener(e -> openDecodePopup());
+        
+        // Center on screen
+        setLocationRelativeTo(null);
+    }
+    
+    private JButton createButton(String text, String tooltip) {
+        JButton button = new JButton(text);
+        button.setToolTipText(tooltip);
+        button.setFocusPainted(false);
+        return button;
     }
 
     private void encodeText() {
         String text = inputTextArea.getText();
         if (text.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Veuillez entrer du texte!");
+            showError("Please enter text to encode!");
             return;
         }
 
-        huffman.generateHuffmanCodes(text);
-        String encoded = huffman.encode(text);
-        outputTextArea.setText("Texte encodé:\n" + encoded + "\n\nDictionnaire:\n" + huffman.getHuffmanCodes());
+        try {
+            huffman.generateHuffmanCodes(text);
+            String encoded = huffman.encode(text);
+            outputTextArea.setText("Encoded text:\n" + encoded + "\n\nHuffman Dictionary:\n" + huffman.getHuffmanCodes());
+            updateStatus("Text encoded successfully!");
+        } catch (Exception ex) {
+            showError("Encoding error: " + ex.getMessage());
+        }
     }
 
     private void loadImage() {
         JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+            public boolean accept(File f) {
+                return f.isDirectory() || f.getName().toLowerCase().endsWith(".png") || 
+                       f.getName().toLowerCase().endsWith(".jpg") || f.getName().toLowerCase().endsWith(".jpeg");
+            }
+            public String getDescription() {
+                return "Image Files (*.png, *.jpg, *.jpeg)";
+            }
+        });
+        
         if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
                 BufferedImage img = ImageIO.read(fileChooser.getSelectedFile());
                 imageProcessor.setImage(img);
-                imageLabel.setIcon(new ImageIcon(img));
-                pack();
+                
+                // Resize image for display if needed
+                ImageIcon icon = new ImageIcon(img);
+                if (icon.getIconWidth() > 300) {
+                    icon = new ImageIcon(img.getScaledInstance(300, -1, Image.SCALE_SMOOTH));
+                }
+                
+                imageLabel.setIcon(icon);
+                imageLabel.setText("");
+                updateStatus("Image loaded: " + fileChooser.getSelectedFile().getName());
             } catch (IOException e) {
-                JOptionPane.showMessageDialog(this, "Erreur lors du chargement de l'image");
+                showError("Error loading image: " + e.getMessage());
             }
         }
     }
 
     private void decodeFromImage() {
-        List<int[]> positions = imageProcessor.generatePositions(200, 15);
-        String bits = imageProcessor.extractBits(positions);
-        if (!bits.isEmpty()) {
-            String decodedText = huffman.decode(bits);
-            outputTextArea.setText("Bits extraits: " + bits + "\nTexte décodé: " + decodedText);
-        } else {
-            JOptionPane.showMessageDialog(this, "Aucune image chargée ou pas de données à décoder!");
+        if (imageProcessor.getImage() == null) {
+            showError("Please load an image first!");
+            return;
+        }
+        
+        try {
+            List<int[]> positions = imageProcessor.generatePositions(200, 15);
+            String bits = imageProcessor.extractBits(positions);
+            if (!bits.isEmpty()) {
+                String decodedText = huffman.decode(bits);
+                outputTextArea.setText("Extracted bits: " + bits + "\n\nDecoded text: " + decodedText);
+                updateStatus("Message decoded from image successfully!");
+            } else {
+                showError("No data found in the image!");
+            }
+        } catch (Exception ex) {
+            showError("Decoding error: " + ex.getMessage());
         }
     }
 
     private void showEncodedInfo() {
         String text = inputTextArea.getText();
         if (text.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Veuillez d'abord entrer et encoder un texte!");
+            showError("Please enter text first!");
             return;
         }
 
-        String encoded = huffman.encode(text);
-        if (encoded.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Veuillez d'abord cliquer sur 'Encoder'!");
-            return;
+        try {
+            if (huffman.getHuffmanCodes().isEmpty()) {
+                huffman.generateHuffmanCodes(text);
+            }
+            
+            String encoded = huffman.encode(text);
+            
+            StringBuilder info = new StringBuilder();
+            info.append("HUFFMAN COMPRESSION STATISTICS\n");
+            info.append("-----------------------------\n\n");
+            info.append("Original text: ").append(text).append("\n\n");
+            info.append("Encoded binary: ").append(encoded).append("\n\n");
+            info.append("Original size (bits): ").append(text.length() * 8).append("\n");
+            info.append("Encoded size (bits): ").append(encoded.length()).append("\n");
+            info.append("Compression ratio: ").append(String.format("%.2f%%", (1 - (double)encoded.length() / (text.length() * 8)) * 100)).append("\n\n");
+            info.append("Huffman Dictionary:\n").append(huffman.getHuffmanCodes());
+
+            outputTextArea.setText(info.toString());
+            updateStatus("Compression statistics calculated");
+        } catch (Exception ex) {
+            showError("Error calculating statistics: " + ex.getMessage());
         }
-
-        StringBuilder info = new StringBuilder();
-        info.append("Texte original: ").append(text).append("\n");
-        info.append("Texte encodé: ").append(encoded).append("\n");
-        info.append("Longueur originale (bits): ").append(text.length() * 8).append("\n");
-        info.append("Longueur encodée (bits): ").append(encoded.length()).append("\n");
-        info.append("Taux de compression: ").append(String.format("%.2f%%", (1 - (double)encoded.length() / (text.length() * 8)) * 100)).append("\n");
-        info.append("Dictionnaire Huffman: ").append(huffman.getHuffmanCodes());
-
-        outputTextArea.setText(info.toString());
     }
 
     private void openDecodePopup() {
         if (huffman.getHuffmanCodes().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Veuillez d'abord encoder un texte pour générer un dictionnaire!");
+            showError("Please encode some text first to generate a dictionary!");
             return;
         }
 
-        // Créer une fenêtre pop-up
-        JDialog decodeDialog = new JDialog(this, "Décoder depuis dictionnaire", true);
-        decodeDialog.setSize(400, 200);
-        decodeDialog.setLayout(new BorderLayout());
+        JDialog decodeDialog = new JDialog(this, "Decode from Dictionary", true);
+        decodeDialog.setSize(500, 250);
+        decodeDialog.setLayout(new BorderLayout(10, 10));
+        decodeDialog.setLocationRelativeTo(this);
 
-        // Zone de saisie pour la séquence binaire
-        JTextArea binaryInputArea = new JTextArea(5, 30);
-        decodeDialog.add(new JLabel("Entrez la séquence binaire à décoder:"), BorderLayout.NORTH);
-        decodeDialog.add(new JScrollPane(binaryInputArea), BorderLayout.CENTER);
-
-        // Bouton pour confirmer le décodage
-        JButton confirmButton = new JButton("Décoder");
+        JPanel contentPanel = new JPanel(new BorderLayout(5, 5));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        JLabel instructionLabel = new JLabel("Enter binary sequence to decode:");
+        instructionLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        
+        JTextArea binaryInputArea = new JTextArea();
+        binaryInputArea.setLineWrap(true);
+        binaryInputArea.setWrapStyleWord(true);
+        binaryInputArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton cancelButton = new JButton("Cancel");
+        JButton confirmButton = new JButton("Decode");
+        
+        cancelButton.addActionListener(e -> decodeDialog.dispose());
+        
         confirmButton.addActionListener(e -> {
             String binaryInput = binaryInputArea.getText().trim();
             if (binaryInput.isEmpty()) {
-                JOptionPane.showMessageDialog(decodeDialog, "Veuillez entrer une séquence binaire!");
+                JOptionPane.showMessageDialog(decodeDialog, "Please enter a binary sequence!", 
+                    "Input Required", JOptionPane.WARNING_MESSAGE);
             } else {
-                String decodedText = huffman.decode(binaryInput);
-                outputTextArea.setText("Séquence binaire entrée: " + binaryInput + "\nTexte décodé: " + decodedText);
-                decodeDialog.dispose(); // Ferme la pop-up après décodage
+                try {
+                    String decodedText = huffman.decode(binaryInput);
+                    outputTextArea.setText("Binary input: " + binaryInput + "\n\nDecoded text: " + decodedText);
+                    updateStatus("Binary sequence decoded successfully");
+                    decodeDialog.dispose();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(decodeDialog, "Decoding error: " + ex.getMessage(),
+                        "Decoding Error", JOptionPane.ERROR_MESSAGE);
+                }
             }
         });
-
-        decodeDialog.add(confirmButton, BorderLayout.SOUTH);
-        decodeDialog.setLocationRelativeTo(this); // Centre la pop-up par rapport à la fenêtre principale
+        
+        buttonPanel.add(cancelButton);
+        buttonPanel.add(confirmButton);
+        
+        contentPanel.add(instructionLabel, BorderLayout.NORTH);
+        contentPanel.add(new JScrollPane(binaryInputArea), BorderLayout.CENTER);
+        contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        decodeDialog.add(contentPanel);
         decodeDialog.setVisible(true);
+    }
+    
+    private void showError(String message) {
+        JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
+        updateStatus("Error: " + message);
+    }
+    
+    private void updateStatus(String message) {
+        statusLabel.setText(message);
     }
 }
