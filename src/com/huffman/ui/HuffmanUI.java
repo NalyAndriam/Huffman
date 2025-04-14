@@ -2,10 +2,13 @@ package com.huffman.ui;
 
 import com.huffman.core.HuffmanCoding;
 import com.huffman.core.ImageProcessor;
+import com.huffman.core.WavProcessor;
 
 import javax.swing.*;
 import java.awt.*;
 import javax.imageio.ImageIO;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.ArrayList;
@@ -13,11 +16,12 @@ import java.util.List;
 
 public class HuffmanUI extends JFrame {
     private JTextArea inputTextArea, outputTextArea;
-    private JButton encodeButton, decodeButton, loadImageButton, showStatsButton, decodeFromDictButton;
+    private JButton encodeButton, decodeButton, loadImageButton, loadWavButton, showStatsButton, decodeFromDictButton;
     private JLabel imageLabel, statusLabel;
     private JPanel imagePanel;
     private HuffmanCoding huffman = new HuffmanCoding();
     private ImageProcessor imageProcessor = new ImageProcessor();
+    private WavProcessor wavProcessor = new WavProcessor();
 
     public HuffmanUI() {
         setTitle("Huffman Coding & Steganography Tool");
@@ -50,13 +54,15 @@ public class HuffmanUI extends JFrame {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
         
         encodeButton = createButton("Encode", "Encode the input text using Huffman coding");
-        decodeButton = createButton("Decode from Image", "Extract hidden message from image");
+        decodeButton = createButton("Decode from Media", "Extract hidden message from image or WAV");
         loadImageButton = createButton("Load Image", "Load an image for steganography");
+        loadWavButton = createButton("Load WAV", "Load a WAV file for steganography");
         showStatsButton = createButton("Compression Stats", "Show encoding statistics");
         decodeFromDictButton = createButton("Decode from Dictionary", "Decode a binary sequence using current dictionary");
         
         buttonPanel.add(encodeButton);
         buttonPanel.add(loadImageButton);
+        buttonPanel.add(loadWavButton);
         buttonPanel.add(decodeButton);
         buttonPanel.add(showStatsButton);
         buttonPanel.add(decodeFromDictButton);
@@ -111,6 +117,7 @@ public class HuffmanUI extends JFrame {
         encodeButton.addActionListener(e -> encodeText());
         decodeButton.addActionListener(e -> openDecodeOptionsPopup());
         loadImageButton.addActionListener(e -> loadImage());
+        loadWavButton.addActionListener(e -> loadWav());
         showStatsButton.addActionListener(e -> showEncodedInfo());
         decodeFromDictButton.addActionListener(e -> openDecodePopup());
         
@@ -174,6 +181,32 @@ public class HuffmanUI extends JFrame {
         }
     }
 
+    private void loadWav() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+            public boolean accept(File f) {
+                return f.isDirectory() || f.getName().toLowerCase().endsWith(".wav");
+            }
+            public String getDescription() {
+                return "WAV Files (*.wav)";
+            }
+        });
+        
+        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try {
+                File wavFile = fileChooser.getSelectedFile();
+                AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(wavFile);
+                wavProcessor.setAudioData(audioInputStream);
+                audioInputStream.close();
+                imageLabel.setIcon(null);
+                imageLabel.setText("WAV file loaded");
+                updateStatus("WAV loaded: " + wavFile.getName());
+            } catch (Exception e) {
+                showError("Error loading WAV: " + e.getMessage());
+            }
+        }
+    }
+
     private void decodeFromImage(List<int[]> positions) {
         if (imageProcessor.getImage() == null) {
             showError("Please load an image first!");
@@ -188,6 +221,26 @@ public class HuffmanUI extends JFrame {
                 updateStatus("Message decoded from image successfully!");
             } else {
                 showError("No data found in the image or invalid positions!");
+            }
+        } catch (Exception ex) {
+            showError("Decoding error: " + ex.getMessage());
+        }
+    }
+
+    private void decodeFromWav(List<Integer> positions) {
+        if (wavProcessor.getAudioData() == null) {
+            showError("Please load a WAV file first!");
+            return;
+        }
+        
+        try {
+            String bits = wavProcessor.extractBits(positions);
+            if (!bits.isEmpty()) {
+                String decodedText = huffman.decode(bits);
+                outputTextArea.setText("Extracted bits: " + bits + "\n\nDecoded text: " + decodedText);
+                updateStatus("Message decoded from WAV successfully!");
+            } else {
+                showError("No data found in the WAV or invalid positions!");
             }
         } catch (Exception ex) {
             showError("Decoding error: " + ex.getMessage());
@@ -283,8 +336,8 @@ public class HuffmanUI extends JFrame {
     }
 
     private void openDecodeOptionsPopup() {
-        if (imageProcessor.getImage() == null) {
-            showError("Please load an image first!");
+        if (imageProcessor.getImage() == null && wavProcessor.getAudioData() == null) {
+            showError("Please load an image or WAV file first!");
             return;
         }
 
@@ -296,26 +349,46 @@ public class HuffmanUI extends JFrame {
         JPanel contentPanel = new JPanel(new BorderLayout(5, 5));
         contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
-        JLabel instructionLabel = new JLabel("Choose how to specify pixel positions:");
+        JLabel instructionLabel = new JLabel("Choose decoding source and method:");
         instructionLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
         
-        JPanel optionsPanel = new JPanel(new GridLayout(2, 1, 5, 5));
-        JButton generateButton = new JButton("Generate Positions (Auto)");
-        JButton manualButton = new JButton("Enter Positions Manually");
+        JPanel optionsPanel = new JPanel(new GridLayout(4, 1, 5, 5));
+        JButton generateImageButton = new JButton("Generate Image Positions (Auto)");
+        JButton manualImageButton = new JButton("Enter Image Positions Manually");
+        JButton generateWavButton = new JButton("Generate WAV Positions (Auto)");
+        JButton manualWavButton = new JButton("Enter WAV Positions Manually");
         
-        generateButton.addActionListener(e -> {
+        generateImageButton.setEnabled(imageProcessor.getImage() != null);
+        manualImageButton.setEnabled(imageProcessor.getImage() != null);
+        generateWavButton.setEnabled(wavProcessor.getAudioData() != null);
+        manualWavButton.setEnabled(wavProcessor.getAudioData() != null);
+        
+        generateImageButton.addActionListener(e -> {
             List<int[]> positions = imageProcessor.generatePositions(200, 15);
             decodeFromImage(positions);
             optionsDialog.dispose();
         });
         
-        manualButton.addActionListener(e -> {
+        manualImageButton.addActionListener(e -> {
             optionsDialog.dispose();
-            openManualPositionsPopup();
+            openManualImagePositionsPopup();
         });
         
-        optionsPanel.add(generateButton);
-        optionsPanel.add(manualButton);
+        generateWavButton.addActionListener(e -> {
+            List<Integer> positions = wavProcessor.generatePositions(100, 15);
+            decodeFromWav(positions);
+            optionsDialog.dispose();
+        });
+        
+        manualWavButton.addActionListener(e -> {
+            optionsDialog.dispose();
+            openManualWavPositionsPopup();
+        });
+        
+        optionsPanel.add(generateImageButton);
+        optionsPanel.add(manualImageButton);
+        optionsPanel.add(generateWavButton);
+        optionsPanel.add(manualWavButton);
         
         contentPanel.add(instructionLabel, BorderLayout.NORTH);
         contentPanel.add(optionsPanel, BorderLayout.CENTER);
@@ -331,7 +404,7 @@ public class HuffmanUI extends JFrame {
         optionsDialog.setVisible(true);
     }
 
-    private void openManualPositionsPopup() {
+    private void openManualImagePositionsPopup() {
         JDialog manualDialog = new JDialog(this, "Enter Pixel Positions", true);
         manualDialog.setSize(500, 400);
         manualDialog.setLayout(new BorderLayout(10, 10));
@@ -363,7 +436,7 @@ public class HuffmanUI extends JFrame {
                     "Input Required", JOptionPane.WARNING_MESSAGE);
             } else {
                 try {
-                    List<int[]> positions = parsePositions(positionsText);
+                    List<int[]> positions = parseImagePositions(positionsText);
                     decodeFromImage(positions);
                     manualDialog.dispose();
                 } catch (Exception ex) {
@@ -385,7 +458,61 @@ public class HuffmanUI extends JFrame {
         manualDialog.setVisible(true);
     }
 
-    private List<int[]> parsePositions(String positionsText) throws Exception {
+    private void openManualWavPositionsPopup() {
+        JDialog manualDialog = new JDialog(this, "Enter Bit Positions", true);
+        manualDialog.setSize(500, 400);
+        manualDialog.setLayout(new BorderLayout(10, 10));
+        manualDialog.setLocationRelativeTo(this);
+
+        JPanel contentPanel = new JPanel(new BorderLayout(5, 5));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        JLabel instructionLabel = new JLabel("Enter bit positions (one per line):");
+        instructionLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        JLabel exampleLabel = new JLabel("Example:\n0\n8\n16");
+        exampleLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        
+        JTextArea positionsArea = new JTextArea();
+        positionsArea.setLineWrap(true);
+        positionsArea.setWrapStyleWord(true);
+        positionsArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton cancelButton = new JButton("Cancel");
+        JButton confirmButton = new JButton("Decode");
+        
+        cancelButton.addActionListener(e -> manualDialog.dispose());
+        
+        confirmButton.addActionListener(e -> {
+            String positionsText = positionsArea.getText().trim();
+            if (positionsText.isEmpty()) {
+                JOptionPane.showMessageDialog(manualDialog, "Please enter at least one position!", 
+                    "Input Required", JOptionPane.WARNING_MESSAGE);
+            } else {
+                try {
+                    List<Integer> positions = parseWavPositions(positionsText);
+                    decodeFromWav(positions);
+                    manualDialog.dispose();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(manualDialog, "Invalid format: " + ex.getMessage(),
+                        "Format Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+        
+        buttonPanel.add(cancelButton);
+        buttonPanel.add(confirmButton);
+        
+        contentPanel.add(instructionLabel, BorderLayout.NORTH);
+        contentPanel.add(new JScrollPane(positionsArea), BorderLayout.CENTER);
+        contentPanel.add(exampleLabel, BorderLayout.WEST);
+        contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        manualDialog.add(contentPanel);
+        manualDialog.setVisible(true);
+    }
+
+    private List<int[]> parseImagePositions(String positionsText) throws Exception {
         List<int[]> positions = new ArrayList<>();
         String[] lines = positionsText.split("\n");
         
@@ -402,6 +529,31 @@ public class HuffmanUI extends JFrame {
                 int x = Integer.parseInt(parts[0].trim());
                 int y = Integer.parseInt(parts[1].trim());
                 positions.add(new int[]{x, y});
+            } catch (NumberFormatException e) {
+                throw new Exception("Invalid number format in line: " + line);
+            }
+        }
+        
+        if (positions.isEmpty()) {
+            throw new Exception("No valid positions provided");
+        }
+        return positions;
+    }
+
+    private List<Integer> parseWavPositions(String positionsText) throws Exception {
+        List<Integer> positions = new ArrayList<>();
+        String[] lines = positionsText.split("\n");
+        
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+            
+            try {
+                int pos = Integer.parseInt(line);
+                if (pos < 0) {
+                    throw new Exception("Position must be non-negative: " + line);
+                }
+                positions.add(pos);
             } catch (NumberFormatException e) {
                 throw new Exception("Invalid number format in line: " + line);
             }
