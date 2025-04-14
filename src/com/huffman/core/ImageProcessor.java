@@ -3,6 +3,7 @@ package com.huffman.core;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class ImageProcessor {
     private BufferedImage image;
@@ -21,16 +22,28 @@ public class ImageProcessor {
         int width = image.getWidth();
         int height = image.getHeight();
         List<int[]> positions = new ArrayList<>();
-        int x = 0, y = 0;
+        Random random = new Random();
+        int maxPositions = width * height; // Nombre total de pixels
         
-        while (positions.size() < count && y < height) {
-            positions.add(new int[]{x, y});
-            x += step;
-            if (x >= width) {
-                x = 0;
-                y += step;
+        // Générer des positions aléatoires distinctes
+        while (positions.size() < count && positions.size() < maxPositions) {
+            int x = random.nextInt(width);
+            int y = random.nextInt(height);
+            int[] pos = new int[]{x, y};
+            
+            // Vérifier les doublons
+            boolean isDuplicate = false;
+            for (int[] existing : positions) {
+                if (existing[0] == x && existing[1] == y) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+            if (!isDuplicate) {
+                positions.add(pos);
             }
         }
+        
         return positions;
     }
 
