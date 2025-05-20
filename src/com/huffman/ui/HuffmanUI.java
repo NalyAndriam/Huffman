@@ -2,6 +2,7 @@ package com.huffman.ui;
 
 import com.huffman.core.HuffmanCoding;
 import com.huffman.core.ImageProcessor;
+import com.huffman.core.SardinasPatterson;
 import com.huffman.core.WavProcessor;
 
 import javax.swing.*;
@@ -11,12 +12,12 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 
 public class HuffmanUI extends JFrame {
     private JTextArea inputTextArea, outputTextArea;
@@ -152,26 +153,18 @@ public class HuffmanUI extends JFrame {
     private void checkIfCode() {
         String input = inputTextArea.getText().trim();
         if (input.isEmpty()) {
-            showError("Please enter a set of words to check (separated by commas or newlines)!");
+            showError("Please enter a set of words to check (separated by commas, newlines, or in format char:code)!");
             return;
         }
 
         try {
-            String[] words = input.split("[,\n]+");
-            Set<String> language = new HashSet<>();
-            for (String word : words) {
-                word = word.trim();
-                if (!word.isEmpty()) {
-                    language.add(word);
-                }
-            }
-
+            Set<String> language = parseLanguage(input);
             if (language.isEmpty()) {
                 showError("No valid words provided!");
                 return;
             }
 
-            boolean isCode = sardinasPatterson.isCode(language);
+            boolean isCode = sardinasPatterson.estUnCode(language);
 
             StringBuilder result = new StringBuilder();
             result.append("Language: ").append(language.toString()).append("\n\n");
@@ -187,6 +180,58 @@ public class HuffmanUI extends JFrame {
         } catch (Exception ex) {
             showError("Error checking code: " + ex.getMessage());
         }
+    }
+
+    private Set<String> parseLanguage(String input) throws Exception {
+        Set<String> language = new HashSet<>();
+        String[] lines = input.split("\n");
+
+        boolean isDictionaryFormat = false;
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+            if (line.matches(".*:.*")) {
+                isDictionaryFormat = true;
+                break;
+            }
+        }
+
+        if (isDictionaryFormat) {
+            for (String line : lines) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+
+                String[] parts = line.split(":");
+                if (parts.length != 2) {
+                    throw new Exception("Invalid format in line: " + line + ". Expected char:code");
+                }
+
+                String charPart = parts[0].trim();
+                String codePart = parts[1].trim();
+
+                if (charPart.length() != 1) {
+                    throw new Exception("Invalid character in line: " + line + ". Must be a single character.");
+                }
+
+                if (!codePart.matches("[01]+")) {
+                    throw new Exception("Invalid code in line: " + line + ". Must contain only 0s and 1s.");
+                }
+
+                language.add(codePart);
+            }
+        } else {
+            String[] words = input.split("[,\n]+");
+            for (String word : words) {
+                word = word.trim();
+                if (word.isEmpty()) continue;
+                if (!word.matches("[01]+")) {
+                    throw new Exception("Invalid code: " + word + ". Must contain only 0s and 1s.");
+                }
+                language.add(word);
+            }
+        }
+
+        return language;
     }
 
     private void loadImage() {
@@ -545,7 +590,7 @@ public class HuffmanUI extends JFrame {
         }
 
         Set<String> codes = new HashSet<>(dictionary.values());
-        if (!sardinasPatterson.isCode(codes)) {
+        if (!sardinasPatterson.estUnCode(codes)) {
             throw new Exception("The provided dictionary is not a prefix code (ambiguous factorization possible).");
         }
 
@@ -720,69 +765,6 @@ public class HuffmanUI extends JFrame {
 
     private void updateStatus(String message) {
         statusLabel.setText(message);
-    }
-
-    public class SardinasPatterson {
-        public boolean isCode(Set<String> language) {
-            if (language == null || language.isEmpty()) {
-                return true;
-            }
-
-            List<Set<String>> sequence = new ArrayList<>();
-            sequence.add(new HashSet<>(language));
-
-            Set<String> L1 = computeLeftQuotient(language, language);
-            L1.remove("");
-            if (L1.contains("")) {
-                return false;
-            }
-            sequence.add(L1);
-
-            Set<String> prevLn;
-            int n = 1;
-            while (true) {
-                prevLn = sequence.get(n);
-                Set<String> LnPlus1 = new HashSet<>();
-                LnPlus1.addAll(computeLeftQuotient(language, prevLn));
-                LnPlus1.addAll(computeLeftQuotient(prevLn, language));
-
-                if (LnPlus1.contains("")) {
-                    return false;
-                }
-
-                if (LnPlus1.isEmpty()) {
-                    return true;
-                }
-                for (Set<String> pastLn : sequence) {
-                    if (pastLn.equals(LnPlus1)) {
-                        return true;
-                    }
-                }
-
-                sequence.add(LnPlus1);
-                n++;
-            }
-        }
-
-        private Set<String> computeLeftQuotient(Set<String> M, Set<String> L) {
-            Set<String> quotient = new HashSet<>();
-            for (String u : M) {
-                Set<String> residual = computeLeftResidual(u, L);
-                quotient.addAll(residual);
-            }
-            return quotient;
-        }
-
-        private Set<String> computeLeftResidual(String u, Set<String> L) {
-            Set<String> residual = new HashSet<>();
-            for (String v : L) {
-                if (v.startsWith(u)) {
-                    String suffix = v.substring(u.length());
-                    residual.add(suffix);
-                }
-            }
-            return residual;
-        }
     }
 
     public static void main(String[] args) {

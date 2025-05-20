@@ -8,6 +8,7 @@ if not exist "%PROJECT_DIR%\bin" mkdir "%PROJECT_DIR%\bin"
 javac -d "%PROJECT_DIR%\bin" "%PROJECT_DIR%\src\com\huffman\core\HuffmanCoding.java" ^
     "%PROJECT_DIR%\src\com\huffman\core\ImageProcessor.java" ^
     "%PROJECT_DIR%\src\com\huffman\core\WavProcessor.java" ^
+    "%PROJECT_DIR%\src\com\huffman\core\SardinasPatterson.java" ^
     "%PROJECT_DIR%\src\com\huffman\ui\HuffmanUI.java" ^
     "%PROJECT_DIR%\src\Main.java"
 
