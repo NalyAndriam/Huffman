@@ -91,4 +91,12 @@ public class HuffmanCoding {
     public Map<Character, String> getHuffmanCodes() {
         return new HashMap<>(huffmanCodes);
     }
+
+    public void setHuffmanCodes(Map<Character, String> dictionary) {
+        if (dictionary == null) {
+            huffmanCodes.clear();
+        } else {
+            huffmanCodes = new HashMap<>(dictionary);
+        }
+    }
 }
