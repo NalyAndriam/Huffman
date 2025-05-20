@@ -11,20 +11,23 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.util.List;
-import java.util.Set;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class HuffmanUI extends JFrame {
     private JTextArea inputTextArea, outputTextArea;
-    private JButton encodeButton, decodeButton, loadImageButton, loadWavButton, showStatsButton, decodeFromDictButton, checkCodeButton;
+    private JButton encodeButton, decodeButton, loadImageButton, loadWavButton, showStatsButton, decodeFromDictButton, checkCodeButton, addDictionaryButton;
     private JLabel imageLabel, statusLabel;
     private JPanel imagePanel;
     private HuffmanCoding huffman = new HuffmanCoding();
     private ImageProcessor imageProcessor = new ImageProcessor();
     private WavProcessor wavProcessor = new WavProcessor();
     private SardinasPatterson sardinasPatterson = new SardinasPatterson();
+    private Map<Character, String> customDictionary = null;
 
     public HuffmanUI() {
         setTitle("Huffman Coding & Steganography Tool");
@@ -32,16 +35,13 @@ public class HuffmanUI extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout(10, 10));
 
-        // Main split pane
         JSplitPane mainSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
         mainSplitPane.setResizeWeight(0.5);
         mainSplitPane.setDividerLocation(300);
 
-        // Top panel (input and encoding options)
         JPanel topPanel = new JPanel(new BorderLayout(5, 5));
         topPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10));
 
-        // Input text area with title panel
         JPanel inputPanel = new JPanel(new BorderLayout());
         JLabel inputLabel = new JLabel("Input Text:");
         inputLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
@@ -53,7 +53,6 @@ public class HuffmanUI extends JFrame {
         inputPanel.add(inputLabel, BorderLayout.NORTH);
         inputPanel.add(new JScrollPane(inputTextArea), BorderLayout.CENTER);
 
-        // Button panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
 
         encodeButton = createButton("Encode", "Encode the input text using Huffman coding");
@@ -63,6 +62,7 @@ public class HuffmanUI extends JFrame {
         showStatsButton = createButton("Compression Stats", "Show encoding statistics");
         decodeFromDictButton = createButton("Decode from Dictionary", "Decode a binary sequence using current dictionary");
         checkCodeButton = createButton("Check Code", "Check if the input is a code using Sardinas-Patterson algorithm");
+        addDictionaryButton = createButton("Add Dictionary", "Add a custom dictionary for decoding");
 
         buttonPanel.add(encodeButton);
         buttonPanel.add(loadImageButton);
@@ -71,8 +71,8 @@ public class HuffmanUI extends JFrame {
         buttonPanel.add(showStatsButton);
         buttonPanel.add(decodeFromDictButton);
         buttonPanel.add(checkCodeButton);
+        buttonPanel.add(addDictionaryButton);
 
-        // Status bar
         statusLabel = new JLabel("Ready");
         statusLabel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY),
@@ -81,11 +81,9 @@ public class HuffmanUI extends JFrame {
         topPanel.add(inputPanel, BorderLayout.CENTER);
         topPanel.add(buttonPanel, BorderLayout.SOUTH);
 
-        // Bottom panel (output and image)
         JPanel bottomPanel = new JPanel(new BorderLayout(5, 5));
         bottomPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 10, 10));
 
-        // Output text area
         JPanel outputPanel = new JPanel(new BorderLayout());
         JLabel outputLabel = new JLabel("Results:");
         outputLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
@@ -98,27 +96,22 @@ public class HuffmanUI extends JFrame {
         outputPanel.add(outputLabel, BorderLayout.NORTH);
         outputPanel.add(new JScrollPane(outputTextArea), BorderLayout.CENTER);
 
-        // Image panel
         imagePanel = new JPanel(new BorderLayout());
         imagePanel.setBorder(BorderFactory.createTitledBorder("Image Preview"));
         imageLabel = new JLabel("No image loaded", SwingConstants.CENTER);
         imageLabel.setPreferredSize(new Dimension(300, 200));
         imagePanel.add(imageLabel, BorderLayout.CENTER);
 
-        // Add image and output to a split pane
         JSplitPane outputSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, outputPanel, imagePanel);
         outputSplitPane.setResizeWeight(0.7);
         bottomPanel.add(outputSplitPane, BorderLayout.CENTER);
 
-        // Add components to main split pane
         mainSplitPane.setTopComponent(topPanel);
         mainSplitPane.setBottomComponent(bottomPanel);
 
-        // Add to frame
         add(mainSplitPane, BorderLayout.CENTER);
         add(statusLabel, BorderLayout.SOUTH);
 
-        // Register event handlers
         encodeButton.addActionListener(e -> encodeText());
         decodeButton.addActionListener(e -> openDecodeOptionsPopup());
         loadImageButton.addActionListener(e -> loadImage());
@@ -126,8 +119,8 @@ public class HuffmanUI extends JFrame {
         showStatsButton.addActionListener(e -> showEncodedInfo());
         decodeFromDictButton.addActionListener(e -> openDecodePopup());
         checkCodeButton.addActionListener(e -> checkIfCode());
+        addDictionaryButton.addActionListener(e -> openCustomDictionaryPopup());
 
-        // Center on screen
         setLocationRelativeTo(null);
     }
 
@@ -147,6 +140,7 @@ public class HuffmanUI extends JFrame {
 
         try {
             huffman.generateHuffmanCodes(text);
+            customDictionary = null;
             String encoded = huffman.encode(text);
             outputTextArea.setText("Encoded text:\n" + encoded + "\n\nHuffman Dictionary:\n" + huffman.getHuffmanCodes());
             updateStatus("Text encoded successfully!");
@@ -163,7 +157,6 @@ public class HuffmanUI extends JFrame {
         }
 
         try {
-            // Parse input into a set of words
             String[] words = input.split("[,\n]+");
             Set<String> language = new HashSet<>();
             for (String word : words) {
@@ -178,10 +171,8 @@ public class HuffmanUI extends JFrame {
                 return;
             }
 
-            // Check if the language is a code using Sardinas-Patterson
             boolean isCode = sardinasPatterson.isCode(language);
 
-            // Display result
             StringBuilder result = new StringBuilder();
             result.append("Language: ").append(language.toString()).append("\n\n");
             result.append("Is a code: ").append(isCode).append("\n");
@@ -215,7 +206,6 @@ public class HuffmanUI extends JFrame {
                 BufferedImage img = ImageIO.read(fileChooser.getSelectedFile());
                 imageProcessor.setImage(img);
 
-                // Resize image for display if needed
                 ImageIcon icon = new ImageIcon(img);
                 if (icon.getIconWidth() > 300) {
                     icon = new ImageIcon(img.getScaledInstance(300, -1, Image.SCALE_SMOOTH));
@@ -256,9 +246,14 @@ public class HuffmanUI extends JFrame {
         }
     }
 
-    private void decodeFromImage(List<int[]> positions) {
+    private void decodeFromImage(List<int[]> positions, boolean useCustomDictionary) {
         if (imageProcessor.getImage() == null) {
             showError("Please load an image first!");
+            return;
+        }
+
+        if (!useCustomDictionary && huffman.getHuffmanCodes().isEmpty()) {
+            showError("Please encode some text or add a custom dictionary first!");
             return;
         }
 
@@ -266,7 +261,8 @@ public class HuffmanUI extends JFrame {
             String bits = imageProcessor.extractBits(positions);
             if (!bits.isEmpty()) {
                 String decodedText = huffman.decode(bits);
-                outputTextArea.setText("Extracted bits: " + bits + "\n\nDecoded text: " + decodedText);
+                outputTextArea.setText("Extracted bits: " + bits + "\n\nDecoded text: " + decodedText +
+                        "\n\nUsing dictionary: " + (useCustomDictionary ? customDictionary.toString() : huffman.getHuffmanCodes()));
                 updateStatus("Message decoded from image successfully!");
             } else {
                 showError("No data found in the image or invalid positions!");
@@ -276,9 +272,14 @@ public class HuffmanUI extends JFrame {
         }
     }
 
-    private void decodeFromWav(List<Integer> positions) {
+    private void decodeFromWav(List<Integer> positions, boolean useCustomDictionary) {
         if (wavProcessor.getAudioData() == null) {
             showError("Please load a WAV file first!");
+            return;
+        }
+
+        if (!useCustomDictionary && huffman.getHuffmanCodes().isEmpty()) {
+            showError("Please encode some text or add a custom dictionary first!");
             return;
         }
 
@@ -286,7 +287,8 @@ public class HuffmanUI extends JFrame {
             String bits = wavProcessor.extractBits(positions);
             if (!bits.isEmpty()) {
                 String decodedText = huffman.decode(bits);
-                outputTextArea.setText("Extracted bits: " + bits + "\n\nDecoded text: " + decodedText);
+                outputTextArea.setText("Extracted bits: " + bits + "\n\nDecoded text: " + decodedText +
+                        "\n\nUsing dictionary: " + (useCustomDictionary ? customDictionary.toString() : huffman.getHuffmanCodes()));
                 updateStatus("Message decoded from WAV successfully!");
             } else {
                 showError("No data found in the WAV or invalid positions!");
@@ -306,6 +308,7 @@ public class HuffmanUI extends JFrame {
         try {
             if (huffman.getHuffmanCodes().isEmpty()) {
                 huffman.generateHuffmanCodes(text);
+                customDictionary = null;
             }
 
             String encoded = huffman.encode(text);
@@ -328,8 +331,8 @@ public class HuffmanUI extends JFrame {
     }
 
     private void openDecodePopup() {
-        if (huffman.getHuffmanCodes().isEmpty()) {
-            showError("Please encode some text first to generate a dictionary!");
+        if (huffman.getHuffmanCodes().isEmpty() && customDictionary == null) {
+            showError("Please encode some text or add a custom dictionary first!");
             return;
         }
 
@@ -363,7 +366,8 @@ public class HuffmanUI extends JFrame {
             } else {
                 try {
                     String decodedText = huffman.decode(binaryInput);
-                    outputTextArea.setText("Binary input: " + binaryInput + "\n\nDecoded text: " + decodedText);
+                    outputTextArea.setText("Binary input: " + binaryInput + "\n\nDecoded text: " + decodedText +
+                            "\n\nUsing dictionary: " + (customDictionary != null ? customDictionary.toString() : huffman.getHuffmanCodes()));
                     updateStatus("Binary sequence decoded successfully");
                     decodeDialog.dispose();
                 } catch (Exception ex) {
@@ -402,10 +406,10 @@ public class HuffmanUI extends JFrame {
         instructionLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
 
         JPanel optionsPanel = new JPanel(new GridLayout(4, 1, 5, 5));
-        JButton generateImageButton = new JButton("Generate Image Positions (Auto)");
-        JButton manualImageButton = new JButton("Enter Image Positions Manually");
-        JButton generateWavButton = new JButton("Generate WAV Positions (Auto)");
-        JButton manualWavButton = new JButton("Enter WAV Positions Manually");
+        JButton generateImageButton = new JButton("Auto Image Decode");
+        JButton manualImageButton = new JButton("Manual Image Decode");
+        JButton generateWavButton = new JButton("Auto WAV Decode");
+        JButton manualWavButton = new JButton("Manual WAV Decode");
 
         generateImageButton.setEnabled(imageProcessor.getImage() != null);
         manualImageButton.setEnabled(imageProcessor.getImage() != null);
@@ -414,24 +418,24 @@ public class HuffmanUI extends JFrame {
 
         generateImageButton.addActionListener(e -> {
             List<int[]> positions = imageProcessor.generatePositions(200, 15);
-            decodeFromImage(positions);
+            decodeFromImage(positions, customDictionary != null);
             optionsDialog.dispose();
         });
 
         manualImageButton.addActionListener(e -> {
             optionsDialog.dispose();
-            openManualImagePositionsPopup();
+            openManualImagePositionsPopup(customDictionary != null);
         });
 
         generateWavButton.addActionListener(e -> {
             List<Integer> positions = wavProcessor.generatePositions(100, 15);
-            decodeFromWav(positions);
+            decodeFromWav(positions, customDictionary != null);
             optionsDialog.dispose();
         });
 
         manualWavButton.addActionListener(e -> {
             optionsDialog.dispose();
-            openManualWavPositionsPopup();
+            openManualWavPositionsPopup(customDictionary != null);
         });
 
         optionsPanel.add(generateImageButton);
@@ -453,7 +457,102 @@ public class HuffmanUI extends JFrame {
         optionsDialog.setVisible(true);
     }
 
-    private void openManualImagePositionsPopup() {
+    private void openCustomDictionaryPopup() {
+        JDialog dictDialog = new JDialog(this, "Add Custom Dictionary", true);
+        dictDialog.setSize(500, 400);
+        dictDialog.setLayout(new BorderLayout(10, 10));
+        dictDialog.setLocationRelativeTo(this);
+
+        JPanel contentPanel = new JPanel(new BorderLayout(5, 5));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JLabel instructionLabel = new JLabel("Enter dictionary (format: char:code per line):");
+        instructionLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        JLabel exampleLabel = new JLabel("Example:\na:0\nb:10\nc:11");
+        exampleLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+
+        JTextArea dictArea = new JTextArea();
+        dictArea.setLineWrap(true);
+        dictArea.setWrapStyleWord(true);
+        dictArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton cancelButton = new JButton("Cancel");
+        JButton confirmButton = new JButton("Add");
+
+        cancelButton.addActionListener(e -> dictDialog.dispose());
+
+        confirmButton.addActionListener(e -> {
+            String dictText = dictArea.getText().trim();
+            if (dictText.isEmpty()) {
+                JOptionPane.showMessageDialog(dictDialog, "Please enter a dictionary!",
+                        "Input Required", JOptionPane.WARNING_MESSAGE);
+            } else {
+                try {
+                    customDictionary = parseDictionary(dictText);
+                    huffman.setHuffmanCodes(customDictionary);
+                    outputTextArea.setText("Custom dictionary added:\n" + customDictionary.toString());
+                    updateStatus("Custom dictionary added successfully");
+                    dictDialog.dispose();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(dictDialog, "Invalid dictionary format: " + ex.getMessage(),
+                            "Format Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        buttonPanel.add(cancelButton);
+        buttonPanel.add(confirmButton);
+
+        contentPanel.add(instructionLabel, BorderLayout.NORTH);
+        contentPanel.add(new JScrollPane(dictArea), BorderLayout.CENTER);
+        contentPanel.add(exampleLabel, BorderLayout.WEST);
+        contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+        dictDialog.add(contentPanel);
+        dictDialog.setVisible(true);
+    }
+
+    private Map<Character, String> parseDictionary(String dictText) throws Exception {
+        Map<Character, String> dictionary = new HashMap<>();
+        String[] lines = dictText.split("\n");
+
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+
+            String[] parts = line.split(":");
+            if (parts.length != 2) {
+                throw new Exception("Each line must contain exactly one character and code separated by a colon (char:code)");
+            }
+
+            String charPart = parts[0].trim();
+            String codePart = parts[1].trim();
+
+            if (charPart.length() != 1) {
+                throw new Exception("Invalid character in line: " + line + ". Must be a single character.");
+            }
+
+            if (!codePart.matches("[01]+")) {
+                throw new Exception("Invalid code in line: " + line + ". Must contain only 0s and 1s.");
+            }
+
+            dictionary.put(charPart.charAt(0), codePart);
+        }
+
+        if (dictionary.isEmpty()) {
+            throw new Exception("No valid dictionary entries provided");
+        }
+
+        Set<String> codes = new HashSet<>(dictionary.values());
+        if (!sardinasPatterson.isCode(codes)) {
+            throw new Exception("The provided dictionary is not a prefix code (ambiguous factorization possible).");
+        }
+
+        return dictionary;
+    }
+
+    private void openManualImagePositionsPopup(boolean useCustomDictionary) {
         JDialog manualDialog = new JDialog(this, "Enter Pixel Positions", true);
         manualDialog.setSize(500, 400);
         manualDialog.setLayout(new BorderLayout(10, 10));
@@ -486,7 +585,7 @@ public class HuffmanUI extends JFrame {
             } else {
                 try {
                     List<int[]> positions = parseImagePositions(positionsText);
-                    decodeFromImage(positions);
+                    decodeFromImage(positions, useCustomDictionary);
                     manualDialog.dispose();
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(manualDialog, "Invalid format: " + ex.getMessage(),
@@ -507,7 +606,7 @@ public class HuffmanUI extends JFrame {
         manualDialog.setVisible(true);
     }
 
-    private void openManualWavPositionsPopup() {
+    private void openManualWavPositionsPopup(boolean useCustomDictionary) {
         JDialog manualDialog = new JDialog(this, "Enter Bit Positions", true);
         manualDialog.setSize(500, 400);
         manualDialog.setLayout(new BorderLayout(10, 10));
@@ -540,7 +639,7 @@ public class HuffmanUI extends JFrame {
             } else {
                 try {
                     List<Integer> positions = parseWavPositions(positionsText);
-                    decodeFromWav(positions);
+                    decodeFromWav(positions, useCustomDictionary);
                     manualDialog.dispose();
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(manualDialog, "Invalid format: " + ex.getMessage(),
@@ -623,47 +722,40 @@ public class HuffmanUI extends JFrame {
         statusLabel.setText(message);
     }
 
-    // Sardinas-Patterson algorithm implementation
     public class SardinasPatterson {
         public boolean isCode(Set<String> language) {
             if (language == null || language.isEmpty()) {
-                return true; // Empty language is a code
+                return true;
             }
 
-            // Initialize the sequence L_n
             List<Set<String>> sequence = new ArrayList<>();
-            sequence.add(new HashSet<>(language)); // L_0 = L
+            sequence.add(new HashSet<>(language));
 
-            // Compute L_1 = L^{-1}L - {ε}
             Set<String> L1 = computeLeftQuotient(language, language);
-            L1.remove(""); // Remove empty string if present
+            L1.remove("");
             if (L1.contains("")) {
-                return false; // Empty string in L_1 means not a code
+                return false;
             }
             sequence.add(L1);
 
-            // Compute subsequent L_n until empty string is found or sequence stabilizes
             Set<String> prevLn;
             int n = 1;
             while (true) {
                 prevLn = sequence.get(n);
-                // L_{n+1} = L^{-1}L_n ∪ L_n^{-1}L
                 Set<String> LnPlus1 = new HashSet<>();
                 LnPlus1.addAll(computeLeftQuotient(language, prevLn));
                 LnPlus1.addAll(computeLeftQuotient(prevLn, language));
 
-                // Check if empty string is in L_{n+1}
                 if (LnPlus1.contains("")) {
-                    return false; // Language is not a code
+                    return false;
                 }
 
-                // Check if L_{n+1} is empty or equal to a previous L_k
                 if (LnPlus1.isEmpty()) {
-                    return true; // No empty string found, language is a code
+                    return true;
                 }
                 for (Set<String> pastLn : sequence) {
                     if (pastLn.equals(LnPlus1)) {
-                        return true; // Sequence stabilizes, no empty string, language is a code
+                        return true;
                     }
                 }
 
